@@ -2,13 +2,13 @@
 import sys
 import os
 from datetime import datetime, timedelta
-from PyQt5.QtWidgets import (QApplication, QLineEdit, QMainWindow, QVBoxLayout, QHBoxLayout, 
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
                              QWidget, QPushButton, QLabel, QScrollArea, QMessageBox,
                              QInputDialog, QColorDialog, QMenuBar, QAction, QFileDialog,
                              QDialog, QFormLayout, QDialogButtonBox, QCheckBox, QGroupBox,
-                             QSpinBox, QComboBox, QSplitter, QSizePolicy, QFrame)
-from PyQt5.QtCore import Qt, QTimer, QPoint, QPropertyAnimation, QEasingCurve, pyqtSignal
-from PyQt5.QtGui import QPainter, QPen, QColor, QFont, QMouseEvent, QFontMetrics
+                             QSpinBox, QComboBox, QSplitter, QSizePolicy, QFrame, QLineEdit)
+from PyQt5.QtCore import Qt, QTimer, QPoint
+from PyQt5.QtGui import QPainter, QPen, QColor, QFont, QMouseEvent
 
 from styles import STYLESHEET
 from time_block import ResizableTimeBlock
@@ -95,61 +95,6 @@ class BlockCreationDialog(QDialog):
             "notify": self.notify_check.isChecked()
         }
 
-class SettingsDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setup_ui()
-    
-    def setup_ui(self):
-        self.setWindowTitle("Настройки")
-        self.setMinimumWidth(400)
-        
-        layout = QVBoxLayout(self)
-        
-        # Группа уведомлений
-        notify_group = QGroupBox("Уведомления")
-        notify_layout = QFormLayout(notify_group)
-        
-        self.notify_enabled = QCheckBox("Включить уведомления")
-        self.notify_enabled.setChecked(True)
-        notify_layout.addRow(self.notify_enabled)
-        
-        self.notify_before = QSpinBox()
-        self.notify_before.setRange(1, 60)
-        self.notify_before.setValue(2)
-        self.notify_before.setSuffix(" минут")
-        notify_layout.addRow("Уведомлять за:", self.notify_before)
-        
-        layout.addWidget(notify_group)
-        
-        # Группа внешнего вида
-        appearance_group = QGroupBox("Внешний вид")
-        appearance_layout = QFormLayout(appearance_group)
-        
-        self.theme_combo = QComboBox()
-        self.theme_combo.addItems(["Черно-красная", "Темная", "Светлая"])
-        appearance_layout.addRow("Тема:", self.theme_combo)
-        
-        self.show_current_time = QCheckBox("Показывать текущее время")
-        self.show_current_time.setChecked(True)
-        appearance_layout.addRow("", self.show_current_time)
-        
-        layout.addWidget(appearance_group)
-        
-        # Кнопки
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-    
-    def get_settings(self):
-        return {
-            "notifications_enabled": self.notify_enabled.isChecked(),
-            "notify_before_minutes": self.notify_before.value(),
-            "theme": self.theme_combo.currentText(),
-            "show_current_time": self.show_current_time.isChecked()
-        }
-
 class TimeBlockingApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -160,7 +105,7 @@ class TimeBlockingApp(QMainWindow):
         
         # Менеджеры
         self.data_manager = DataManager()
-        self.notification_manager = NotificationManager()
+        self.notification_manager = NotificationManager(self)
         self.notification_manager.notification_triggered.connect(self.show_notification)
         
         self.init_ui()
@@ -245,7 +190,7 @@ class TimeBlockingApp(QMainWindow):
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         
-        # Виджет для блоков с абсолютным позиционированием
+        # Виджет для блоков
         self.blocks_widget = QWidget()
         self.blocks_widget.setMouseTracking(True)
         self.blocks_widget.mousePressEvent = self.handle_canvas_click
@@ -290,14 +235,11 @@ class TimeBlockingApp(QMainWindow):
         edit_menu = menubar.addMenu("✏️ Правка")
         edit_menu.addAction("➕ Создать блок", self.create_block_dialog, "Insert")
         edit_menu.addAction("🗑️ Очистить все", self.clear_all_blocks)
-        edit_menu.addSeparator()
-        edit_menu.addAction("⚙️ Настройки", self.show_settings)
         
         # Меню Вид
         view_menu = menubar.addMenu("👁️ Вид")
         view_menu.addAction("🕐 Показать текущее время", self.toggle_current_time_display)
         view_menu.addAction("📊 Статистика продуктивности", self.show_stats)
-        view_menu.addAction("🎨 Сменить тему", self.change_theme)
         
         # Меню Помощь
         help_menu = menubar.addMenu("❓ Помощь")
@@ -311,7 +253,7 @@ class TimeBlockingApp(QMainWindow):
         # Таймер для обновления текущего времени
         self.time_timer = QTimer()
         self.time_timer.timeout.connect(self.update_current_time_display)
-        self.time_timer.start(1000)  # Каждую секунду
+        self.time_timer.start(1000)
         
         # Таймер для проверки уведомлений
         self.notification_manager.start()
@@ -388,14 +330,7 @@ class TimeBlockingApp(QMainWindow):
         self.statusBar().showMessage(f"Цвет блока изменен")
     
     def on_block_time_changed(self, block):
-        # Обновляем позицию блока на основе времени
-        self.update_block_position(block)
         self.update_stats()
-    
-    def update_block_position(self, block):
-        # Здесь можно реализовать логику позиционирования блоков
-        # на основе их времени начала и окончания
-        pass
     
     def new_day(self):
         reply = QMessageBox.question(self, "Новый день", 
@@ -526,14 +461,7 @@ class TimeBlockingApp(QMainWindow):
                 QMessageBox.information(self, "Импорт", "Данные успешно импортированы")
     
     def show_settings(self):
-        dialog = SettingsDialog(self)
-        if dialog.exec_() == QDialog.Accepted:
-            settings = dialog.get_settings()
-            self.apply_settings(settings)
-    
-    def apply_settings(self, settings):
-        self.notification_manager.set_enabled(settings["notifications_enabled"])
-        # Здесь можно добавить применение других настроек
+        QMessageBox.information(self, "Настройки", "Раздел настроек будет реализован в будущих версиях")
     
     def toggle_notifications(self):
         enabled = not self.notification_manager.enabled
@@ -548,8 +476,7 @@ class TimeBlockingApp(QMainWindow):
         hours = total_minutes // 60
         minutes = total_minutes % 60
         
-        # Простая метрика продуктивности (можно усложнить)
-        productivity = min(100, int((total_minutes / 480) * 100))  # 8 часов = 100%
+        productivity = min(100, int((total_minutes / 480) * 100))
         
         stats_text = f"""
         <h3>Статистика за {self.current_date.strftime('%d.%m.%Y')}</h3>
@@ -576,7 +503,6 @@ class TimeBlockingApp(QMainWindow):
         )
     
     def update_date_display(self):
-        from datetime import datetime
         today = datetime.now().date()
         date_str = self.current_date.strftime("%d %B %Y (%A)")
         
@@ -594,12 +520,7 @@ class TimeBlockingApp(QMainWindow):
         self.update()
     
     def toggle_current_time_display(self):
-        # Здесь можно добавить переключение отображения текущего времени
         pass
-    
-    def change_theme(self):
-        # Здесь можно добавить смену темы
-        QMessageBox.information(self, "Смена темы", "В будущих версиях будет доступно больше тем")
     
     def show_notification(self, title, message):
         QMessageBox.information(self, title, message)
@@ -658,7 +579,7 @@ class TimeBlockingApp(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setStyle('Fusion')  # Современный стиль
+    app.setStyle('Fusion')
     
     window = TimeBlockingApp()
     window.show()

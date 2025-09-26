@@ -1,10 +1,10 @@
 # time_block.py
 from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, 
                              QMenu, QAction, QInputDialog, QLineEdit, 
-                             QSizePolicy)
-from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QTimer, QPropertyAnimation, QEasingCurve
+                             QSizePolicy, QDialog, QDialogButtonBox, QFormLayout, QCheckBox)
+from PyQt5.QtCore import Qt, pyqtSignal, QPoint
 from PyQt5.QtGui import QMouseEvent, QFont, QPainter, QColor, QPen
-from PyQt5.QtCore import QPropertyAnimation, QRect
+from datetime import datetime
 
 class ResizableTimeBlock(QWidget):
     deleted = pyqtSignal(object)
@@ -22,7 +22,7 @@ class ResizableTimeBlock(QWidget):
         self.notify = notify
         self.is_dragging = False
         self.is_resizing = False
-        self.resize_edge = None  # 'top', 'bottom'
+        self.resize_edge = None
         self.drag_start_pos = None
         self.block_id = id(self)
         
@@ -30,11 +30,6 @@ class ResizableTimeBlock(QWidget):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
         self.setMouseTracking(True)
-        
-        # Анимация при наведении
-        self.animation = QPropertyAnimation(self, b"geometry")
-        self.animation.setDuration(200)
-        self.animation.setEasingCurve(QEasingCurve.OutCubic)
     
     def init_ui(self):
         self.setMinimumHeight(30)
@@ -101,13 +96,13 @@ class ResizableTimeBlock(QWidget):
             height = self.height()
             
             # Проверяем, кликнули ли на верхнюю или нижнюю границу для изменения размера
-            if pos.y() < 10:  # Верхняя граница
+            if pos.y() < 10:
                 self.is_resizing = True
                 self.resize_edge = 'top'
-            elif pos.y() > height - 10:  # Нижняя граница
+            elif pos.y() > height - 10:
                 self.is_resizing = True
                 self.resize_edge = 'bottom'
-            else:  # Перетаскивание
+            else:
                 self.is_dragging = True
                 self.drag_start_pos = event.globalPos() - self.frameGeometry().topLeft()
             
@@ -124,13 +119,11 @@ class ResizableTimeBlock(QWidget):
             self.setCursor(Qt.ArrowCursor)
         
         if self.is_dragging and event.buttons() == Qt.LeftButton:
-            # Перетаскивание блока
             new_pos = event.globalPos() - self.drag_start_pos
             self.move(new_pos)
             self.time_changed.emit(self)
             event.accept()
         elif self.is_resizing and event.buttons() == Qt.LeftButton:
-            # Изменение размера - эмулируем, фактическое изменение времени будет в родительском виджете
             event.accept()
     
     def mouseReleaseEvent(self, event: QMouseEvent):
@@ -145,8 +138,6 @@ class ResizableTimeBlock(QWidget):
     
     def edit_block(self):
         """Редактирование блока через диалог"""
-        from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QCheckBox
-        
         dialog = QDialog(self)
         dialog.setWindowTitle("Редактирование блока")
         dialog.setMinimumWidth(300)
@@ -172,7 +163,6 @@ class ResizableTimeBlock(QWidget):
         layout.addRow(buttons)
         
         if dialog.exec_() == QDialog.Accepted:
-            from datetime import datetime
             try:
                 # Обновляем время
                 new_start = datetime.strptime(start_time_edit.text(), "%H:%M").time()

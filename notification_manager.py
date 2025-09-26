@@ -1,13 +1,14 @@
 # notification_manager.py
 from datetime import datetime, timedelta
-from PyQt5.QtCore import QTimer, pyqtSignal
+from PyQt5.QtCore import QTimer, pyqtSignal, QObject
 from PyQt5.QtWidgets import QMessageBox
-import winsound  # Для Windows, для других ОС нужна альтернатива
+import sys
 
-class NotificationManager:
+class NotificationManager(QObject):
     notification_triggered = pyqtSignal(str, str)  # title, message
     
-    def __init__(self):
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.timer = QTimer()
         self.timer.timeout.connect(self.check_notifications)
         self.enabled = True
@@ -53,13 +54,16 @@ class NotificationManager:
         
         # Удаляем обработанные уведомления
         for block_id in blocks_to_remove:
-            del self.notification_times[block_id]
+            if block_id in self.notification_times:
+                del self.notification_times[block_id]
     
     def show_notification(self, title, notify_time):
         """Показывает уведомление"""
         try:
             # Звуковое уведомление (только для Windows)
-            winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+            if sys.platform == "win32":
+                import winsound
+                winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
         except:
             pass
         

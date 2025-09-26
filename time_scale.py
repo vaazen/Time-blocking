@@ -1,19 +1,16 @@
 # time_scale.py
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QFrame
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QPainter, QPen, QColor, QFont
-from datetime import datetime, timedelta
-from PyQt5.QtCore import Qt, pyqtSignal, QPoint  # Добавляем QPoint
+from datetime import datetime
 
 class TimeScaleWidget(QWidget):
-    time_clicked = pyqtSignal(int)  # Минуты от начала дня
-    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(100)
         self.start_hour = 8
         self.end_hour = 22
-        self.pixels_per_minute = 2  # 2 пикселя на минуту
+        self.pixels_per_minute = 2
         
     def paintEvent(self, event):
         painter = QPainter(self)
