@@ -1,0 +1,23 @@
+{
+  "version": "2.0",
+  "date": "2025-09-27",
+  "saved_at": "2025-09-27T23:35:41.418132",
+  "time_blocks": [
+    {
+      "id": 2042727357696,
+      "title": "Новая задача",
+      "start_time": "2025-09-27T08:05:39.891779",
+      "end_time": "2025-09-27T09:05:39.891779",
+      "color": "#FF2B43",
+      "notify": true,
+      "progress": 0,
+      "created_at": "2025-09-27T23:35:41.418193",
+      "updated_at": "2025-09-27T23:35:41.418205"
+    }
+  ],
+  "metadata": {
+    "total_blocks": 1,
+    "total_minutes": 60,
+    "productivity_score": 14
+  }
+}
