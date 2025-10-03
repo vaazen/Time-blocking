@@ -1,0 +1,52 @@
+{
+  "version": "3.0",
+  "date": "2025-10-03",
+  "saved_at": "2025-10-03T10:17:32.205606",
+  "blocks": [],
+  "statistics": {
+    "date": "2025-10-03",
+    "total_blocks": 0,
+    "total_minutes": 0,
+    "total_hours": 0.0,
+    "productivity_score": 0,
+    "status_breakdown": {
+      "planned": {
+        "count": 0,
+        "minutes": 0
+      },
+      "in_progress": {
+        "count": 0,
+        "minutes": 0
+      },
+      "completed": {
+        "count": 0,
+        "minutes": 0
+      },
+      "cancelled": {
+        "count": 0,
+        "minutes": 0
+      }
+    },
+    "priority_breakdown": {
+      "low": {
+        "count": 0,
+        "minutes": 0
+      },
+      "medium": {
+        "count": 0,
+        "minutes": 0
+      },
+      "high": {
+        "count": 0,
+        "minutes": 0
+      },
+      "urgent": {
+        "count": 0,
+        "minutes": 0
+      }
+    },
+    "active_block": null,
+    "upcoming_blocks": 0,
+    "overdue_blocks": 0
+  }
+}

@@ -12,7 +12,8 @@ from PyQt5.QtCore import Qt, QTimer, QPoint, QPropertyAnimation, QEasingCurve, Q
 from PyQt5.QtGui import QIcon, QPainter, QPalette, QLinearGradient, QFont, QFontDatabase, QColor
 
 from styles import PremiumTheme
-from animations import FadeAnimation, SlideAnimation, NotificationAnimator
+from animations import (FadeAnimation, SlideAnimation, NotificationAnimator, 
+                        BouncyAnimation, PulseAnimation, SlideStackedAnimation)
 from modern_widgets import PremiumButton, GlassFrame, GradientLabel, StatisticsCard, NavigationBar
 from time_block import PremiumTimeBlock
 from time_scale import PremiumTimeScale
@@ -95,19 +96,38 @@ class SplashScreen(QDialog):
         self.setGraphicsEffect(shadow)
     
     def start_animation(self):
-        """Анимация прогресса загрузки"""
-        self.animation = QPropertyAnimation(self.progress_bar, b"geometry")
-        self.animation.setDuration(2000)
-        self.animation.setStartValue(self.progress_bar.geometry())
-        self.animation.setEndValue(self.progress_frame.rect())
-        self.animation.setEasingCurve(QEasingCurve.InOutQuad)
-        self.animation.start()
+        """Анимация прогресса загрузки с дополнительными эффектами"""
+        # Анимация прогресс-бара
+        self.progress_animation = QPropertyAnimation(self.progress_bar, b"geometry")
+        self.progress_animation.setDuration(2000)
+        self.progress_animation.setStartValue(self.progress_bar.geometry())
+        self.progress_animation.setEndValue(self.progress_frame.rect())
+        self.progress_animation.setEasingCurve(QEasingCurve.InOutQuad)
+        
+        # Анимация пульсации логотипа
+        self.logo_pulse = QPropertyAnimation(self.logo_label, b"size")
+        self.logo_pulse.setDuration(1500)
+        self.logo_pulse.setEasingCurve(QEasingCurve.InOutSine)
+        self.logo_pulse.setLoopCount(-1)
+        
+        original_size = self.logo_label.size()
+        pulse_size = QSize(int(original_size.width() * 1.1), int(original_size.height() * 1.1))
+        
+        self.logo_pulse.setKeyValueAt(0, original_size)
+        self.logo_pulse.setKeyValueAt(0.5, pulse_size)
+        self.logo_pulse.setKeyValueAt(1, original_size)
+        
+        # Запуск анимаций
+        self.progress_animation.start()
+        self.logo_pulse.start()
+        
+        # Останавливаем пульсацию логотипа через 2 секунды
+        QTimer.singleShot(2000, self.logo_pulse.stop)
 
 class MainWindow(QMainWindow):
     """Главное окно приложения премиум-класса"""
     def __init__(self):
         super().__init__()
-
 
         self.setMinimumSize(800, 600)  # Минимальный размер
         self.setMaximumSize(1920, 1080)  # Максимальный размер
@@ -516,14 +536,28 @@ class MainWindow(QMainWindow):
         """Настройка анимаций"""
         self.fade_animation = FadeAnimation(self)
         self.slide_animation = SlideAnimation(self)
+        self.bouncy_animation = BouncyAnimation(self)
+        self.slide_stacked_animation = SlideStackedAnimation(self.stacked_widget)
+        
+        # Анимации для кнопок
+        self.button_animations = {}
+        
+        # Пульсация для важных элементов
+        self.pulse_animations = {}
     
     def switch_tab(self, index):
-        """Переключение между вкладками"""
-        self.stacked_widget.setCurrentIndex(index)
+        """Переключение между вкладками с анимацией"""
+        current_index = self.stacked_widget.currentIndex()
         
-        # Анимация переключения
-        current_widget = self.stacked_widget.currentWidget()
-        self.fade_animation.fade_in()
+        # Определяем направление анимации
+        direction = "left" if index > current_index else "right"
+        
+        # Используем новую анимацию скольжения
+        self.slide_stacked_animation.slide_to_widget(index, direction)
+        
+        # Обновляем навигационную панель
+        if hasattr(self, 'nav_bar'):
+            self.nav_bar.setCurrentIndex(index)
     
     def handle_canvas_click(self, event):
         """Обработка клика по области блоков"""
@@ -565,7 +599,7 @@ class MainWindow(QMainWindow):
         buttons.rejected.connect(dialog.reject)
         layout.addRow(buttons)
         
-        if dialog.exec_() == QDialog.Accepted:  # Исправлено 00ialog -> QDialog
+        if dialog.exec_() == QDialog.Accepted:
             # Получаем время из QTimeEdit
             start_q_time = start_time_edit.time()
             end_q_time = end_time_edit.time()
@@ -582,7 +616,7 @@ class MainWindow(QMainWindow):
             self.add_time_block(start_dt, end_dt, title_edit.text())
     
     def add_time_block(self, start_time, end_time, title="Новая задача"):
-        """Добавление временного блока"""
+        """Добавление временного блока с анимацией"""
         block = PremiumTimeBlock(start_time, end_time, title)
         block.deleted.connect(self.delete_time_block)
         block.edited.connect(self.update_time_block)
@@ -590,11 +624,26 @@ class MainWindow(QMainWindow):
         self.time_blocks.append(block)
         self.blocks_layout.addWidget(block)
         
-        # Анимация появления
+        # Показываем блок
         block.show()
+        
+        # Анимация появления с отскоком
+        QTimer.singleShot(50, lambda: self.animate_block_appearance(block))
         
         self.update_stats()
         self.statusBar().showMessage(f"Добавлен блок: {title}")
+    
+    def animate_block_appearance(self, block):
+        """Анимация появления блока"""
+        bouncy_anim = BouncyAnimation(block, duration=600)
+        bouncy_anim.bounce_in()
+        
+        # Добавляем пульсацию на короткое время
+        pulse_anim = PulseAnimation(block, duration=800)
+        pulse_anim.start_pulse(1.03)
+        
+        # Останавливаем пульсацию через 2 секунды
+        QTimer.singleShot(2000, pulse_anim.stop_pulse)
     
     def delete_time_block(self, block):
         """Удаление временного блока"""
@@ -619,7 +668,7 @@ class MainWindow(QMainWindow):
                                    "Сохранить текущий день перед очисткой?",
                                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
         
-        if reply == QDialog.Accepted:
+        if reply != QMessageBox.Cancel:
             if reply == QMessageBox.Yes:
                 self.save_current_day()
             
@@ -671,22 +720,54 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Загружено {len(blocks_data)} блоков")
     
     def update_stats(self):
-        """Обновление статистики"""
+        """Обновление статистики с анимацией"""
         total_blocks = len(self.time_blocks)
         total_minutes = sum(block.get_duration_minutes() for block in self.time_blocks)
         hours = total_minutes // 60
         minutes = total_minutes % 60
         productivity = min(100, int((total_minutes / 480) * 100))
         
-        # Обновление карточек статистики
-        self.blocks_card.update_value(total_blocks)
-        self.time_card.update_value(f"{hours:02d}:{minutes:02d}")
-        self.productivity_card.update_value(productivity)
+        # Обновление карточек статистики с анимацией
+        self.animate_stat_update(self.blocks_card, total_blocks)
+        self.animate_stat_update(self.time_card, f"{hours:02d}:{minutes:02d}")
+        self.animate_stat_update(self.productivity_card, productivity)
         
         # Обновление статус бара
         self.day_info_label.setText(
             f"Блоков: {total_blocks} | Время: {hours:02d}:{minutes:02d} | Продуктивность: {productivity}%"
         )
+    
+    def animate_stat_update(self, card, new_value):
+        """Анимация обновления статистической карточки"""
+        # Создаем анимацию масштабирования
+        scale_anim = QPropertyAnimation(card, b"size")
+        scale_anim.setDuration(200)
+        scale_anim.setEasingCurve(QEasingCurve.OutBack)
+        
+        original_size = card.size()
+        scaled_size = QSize(
+            int(original_size.width() * 1.05),
+            int(original_size.height() * 1.05)
+        )
+        
+        # Анимация увеличения
+        scale_anim.setStartValue(original_size)
+        scale_anim.setEndValue(scaled_size)
+        
+        def on_scale_finished():
+            # Обновляем значение
+            card.update_value(new_value)
+            
+            # Анимация возврата к исходному размеру
+            return_anim = QPropertyAnimation(card, b"size")
+            return_anim.setDuration(200)
+            return_anim.setEasingCurve(QEasingCurve.OutBack)
+            return_anim.setStartValue(scaled_size)
+            return_anim.setEndValue(original_size)
+            return_anim.start()
+        
+        scale_anim.finished.connect(on_scale_finished)
+        scale_anim.start()
     
     def update_date_display(self):
         """Обновление отображения даты"""
@@ -852,24 +933,23 @@ class MainWindow(QMainWindow):
         else:
             event.accept()
 
-def show_settings_dialog(self):
-    """Показать диалог настроек"""
-    dialog = SettingsDialog(self, self.settings_manager)
-    dialog.settings_changed.connect(self.on_settings_changed)
-    dialog.exec_()
+    def show_settings_dialog(self):
+        """Показать диалог настроек"""
+        dialog = SettingsDialog(self, self.settings_manager)
+        dialog.settings_changed.connect(self.on_settings_changed)
+        dialog.exec_()
 
-def on_settings_changed(self, new_settings):
-    """Обработка изменения настроек"""
-    # Применяем новые настройки
-    if 'appearance/theme' in new_settings:
-        self.apply_theme(new_settings['appearance/theme'])
-    
-    if 'appearance/font_size' in new_settings:
-        self.apply_font_size(new_settings['appearance/font_size'])
-    
-    # Обновляем другие компоненты...
-    self.statusBar().showMessage("Настройки применены")
-
+    def on_settings_changed(self, new_settings):
+        """Обработка изменения настроек"""
+        # Применяем новые настройки
+        if 'appearance/theme' in new_settings:
+            self.apply_theme(new_settings['appearance/theme'])
+        
+        if 'appearance/font_size' in new_settings:
+            self.apply_font_size(new_settings['appearance/font_size'])
+        
+        # Обновляем другие компоненты...
+        self.statusBar().showMessage("Настройки применены")
 
 
 def main():
@@ -887,11 +967,4 @@ def main():
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-
-    window = MainWindow()
-    window.show()
-
-    sys.exit(app.exec_())
-
     main()

@@ -1,7 +1,7 @@
 # animations.py - Современные анимации для PyQt
 from PyQt5.QtCore import QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QSequentialAnimationGroup
 from PyQt5.QtCore import pyqtProperty, QPoint, QSize
-from PyQt5.QtWidgets import QWidget, QGraphicsOpacityEffect
+from PyQt5.QtWidgets import QWidget, QGraphicsOpacityEffect, QGraphicsDropShadowEffect
 from PyQt5.QtGui import QColor
 
 class FadeAnimation:
@@ -209,6 +209,111 @@ class RippleEffect:
         group.addAnimation(opacity_anim)
         group.finished.connect(self.ripple_widget.hide)
         group.start()
+
+class BouncyAnimation:
+    """Анимация с эффектом отскока"""
+    def __init__(self, widget, duration=600):
+        self.widget = widget
+        self.animation = QPropertyAnimation(widget, b"geometry")
+        self.animation.setDuration(duration)
+        self.animation.setEasingCurve(QEasingCurve.OutBounce)
+    
+    def bounce_in(self):
+        """Анимация появления с отскоком"""
+        original_rect = self.widget.geometry()
+        start_rect = original_rect.adjusted(0, -50, 0, -50)
+        
+        self.animation.setStartValue(start_rect)
+        self.animation.setEndValue(original_rect)
+        self.animation.start()
+
+class PulseAnimation:
+    """Анимация пульсации"""
+    def __init__(self, widget, duration=1000):
+        self.widget = widget
+        self.scale_animation = QPropertyAnimation(widget, b"size")
+        self.scale_animation.setDuration(duration)
+        self.scale_animation.setEasingCurve(QEasingCurve.InOutSine)
+        self.scale_animation.setLoopCount(-1)  # Бесконечный цикл
+    
+    def start_pulse(self, scale_factor=1.05):
+        """Запуск пульсации"""
+        original_size = self.widget.size()
+        scaled_size = QSize(
+            int(original_size.width() * scale_factor),
+            int(original_size.height() * scale_factor)
+        )
+        
+        self.scale_animation.setKeyValueAt(0, original_size)
+        self.scale_animation.setKeyValueAt(0.5, scaled_size)
+        self.scale_animation.setKeyValueAt(1, original_size)
+        self.scale_animation.start()
+    
+    def stop_pulse(self):
+        """Остановка пульсации"""
+        self.scale_animation.stop()
+
+class SlideStackedAnimation:
+    """Анимация переключения между виджетами в стеке"""
+    def __init__(self, stacked_widget):
+        self.stacked_widget = stacked_widget
+        self.current_animation = None
+        
+    def slide_to_widget(self, target_index, direction="left"):
+        """Плавное переключение между виджетами"""
+        if self.current_animation and self.current_animation.state() == QPropertyAnimation.Running:
+            return
+            
+        current_index = self.stacked_widget.currentIndex()
+        if current_index == target_index:
+            return
+            
+        current_widget = self.stacked_widget.widget(current_index)
+        target_widget = self.stacked_widget.widget(target_index)
+        
+        # Размеры виджета
+        width = self.stacked_widget.width()
+        
+        # Позиции для анимации
+        if direction == "left":
+            target_start_pos = QPoint(width, 0)
+            current_end_pos = QPoint(-width, 0)
+        else:  # right
+            target_start_pos = QPoint(-width, 0)
+            current_end_pos = QPoint(width, 0)
+        
+        # Устанавливаем начальные позиции
+        target_widget.move(target_start_pos)
+        target_widget.show()
+        target_widget.raise_()
+        
+        # Анимация текущего виджета
+        current_anim = QPropertyAnimation(current_widget, b"pos")
+        current_anim.setDuration(300)
+        current_anim.setEasingCurve(QEasingCurve.OutCubic)
+        current_anim.setStartValue(current_widget.pos())
+        current_anim.setEndValue(current_end_pos)
+        
+        # Анимация целевого виджета
+        target_anim = QPropertyAnimation(target_widget, b"pos")
+        target_anim.setDuration(300)
+        target_anim.setEasingCurve(QEasingCurve.OutCubic)
+        target_anim.setStartValue(target_start_pos)
+        target_anim.setEndValue(QPoint(0, 0))
+        
+        # Группа параллельных анимаций
+        self.current_animation = QParallelAnimationGroup()
+        self.current_animation.addAnimation(current_anim)
+        self.current_animation.addAnimation(target_anim)
+        
+        # По завершении устанавливаем активный виджет
+        def on_finished():
+            self.stacked_widget.setCurrentIndex(target_index)
+            current_widget.move(0, 0)
+            target_widget.move(0, 0)
+        
+        self.current_animation.finished.connect(on_finished)
+        self.current_animation.start()
 
 # Декоратор для анимации методов
 def animate_method(duration=300, easing=QEasingCurve.OutCubic):
