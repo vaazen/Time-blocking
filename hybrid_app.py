@@ -10,8 +10,16 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout
                              QLineEdit, QComboBox, QTimeEdit, QDialog, QFormLayout,
                              QDialogButtonBox, QMessageBox, QListWidget, QListWidgetItem)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QTime
-from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtGui import QFont
+
+# Попытка импорта WebEngine с fallback
+try:
+    from PyQt5.QtWebEngineWidgets import QWebEngineView
+    WEBENGINE_AVAILABLE = True
+except ImportError:
+    print("PyQtWebEngine не доступен, используется упрощенная версия dashboard")
+    QWebEngineView = None
+    WEBENGINE_AVAILABLE = False
 import pytz
 
 # Импорты наших модулей
@@ -138,20 +146,134 @@ class RustDataProcessor:
             'processor': 'python'
         }
 
-class JavaScriptUIComponent(QWebEngineView):
-    """UI компонент на JavaScript с реальными данными"""
+class JavaScriptUIComponent(QWidget if not WEBENGINE_AVAILABLE else QWebEngineView):
+    """UI компонент Dashboard с реальными данными"""
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent_app = parent
-        self.setup_ui()
+        
+        if WEBENGINE_AVAILABLE:
+            self.setup_webengine_ui()
+        else:
+            self.setup_native_ui()
         
         # Таймер для обновления данных
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_dashboard_data)
         self.update_timer.start(1000)  # Обновляем каждую секунду
     
-    def setup_ui(self):
+    def setup_native_ui(self):
+        """Настройка нативного UI без WebEngine"""
+        layout = QVBoxLayout()
+        
+        # Московское время
+        self.time_frame = QWidget()
+        time_layout = QVBoxLayout(self.time_frame)
+        
+        self.moscow_time_label = QLabel("Московское время")
+        self.moscow_time_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #FF2B43; text-align: center;")
+        self.moscow_time_label.setAlignment(Qt.AlignCenter)
+        
+        self.time_display = QLabel("00:00:00")
+        self.time_display.setStyleSheet("font-size: 32px; font-weight: bold; color: #FF2B43; text-align: center;")
+        self.time_display.setAlignment(Qt.AlignCenter)
+        
+        self.date_display = QLabel("Дата")
+        self.date_display.setStyleSheet("font-size: 14px; color: #CCCCCC; text-align: center;")
+        self.date_display.setAlignment(Qt.AlignCenter)
+        
+        time_layout.addWidget(self.moscow_time_label)
+        time_layout.addWidget(self.time_display)
+        time_layout.addWidget(self.date_display)
+        
+        self.time_frame.setStyleSheet("""
+            QWidget {
+                background: rgba(255, 43, 67, 0.1);
+                border: 2px solid #FF2B43;
+                border-radius: 15px;
+                padding: 20px;
+                margin: 10px;
+            }
+        """)
+        
+        layout.addWidget(self.time_frame)
+        
+        # Статистические карточки
+        stats_layout = QHBoxLayout()
+        
+        # Продуктивность
+        self.productivity_card = self.create_stat_card("Продуктивность", "0%", "#FF2B43")
+        stats_layout.addWidget(self.productivity_card)
+        
+        # Время
+        self.time_card = self.create_stat_card("Время сегодня", "0:00", "#FFC107")
+        stats_layout.addWidget(self.time_card)
+        
+        # Задачи
+        self.tasks_card = self.create_stat_card("Задачи", "0", "#4CAF50")
+        stats_layout.addWidget(self.tasks_card)
+        
+        layout.addLayout(stats_layout)
+        
+        # Детальная информация
+        self.details_text = QTextEdit()
+        self.details_text.setReadOnly(True)
+        self.details_text.setMaximumHeight(200)
+        self.details_text.setStyleSheet("""
+            QTextEdit {
+                background: #2D2D2D;
+                border: 2px solid #FF2B43;
+                border-radius: 8px;
+                padding: 10px;
+                color: white;
+                font-family: 'Consolas', monospace;
+            }
+        """)
+        layout.addWidget(self.details_text)
+        
+        self.setLayout(layout)
+        
+        # Стили для всего виджета
+        self.setStyleSheet("""
+            QWidget {
+                background: #1E1E1E;
+                color: white;
+            }
+        """)
+    
+    def create_stat_card(self, title, value, color):
+        """Создание карточки статистики"""
+        card = QWidget()
+        layout = QVBoxLayout(card)
+        
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {color};")
+        title_label.setAlignment(Qt.AlignCenter)
+        
+        value_label = QLabel(value)
+        value_label.setStyleSheet("font-size: 24px; font-weight: bold; color: white;")
+        value_label.setAlignment(Qt.AlignCenter)
+        
+        layout.addWidget(title_label)
+        layout.addWidget(value_label)
+        
+        card.setStyleSheet(f"""
+            QWidget {{
+                background: rgba(255, 255, 255, 0.05);
+                border: 2px solid {color};
+                border-radius: 10px;
+                padding: 15px;
+                margin: 5px;
+            }}
+        """)
+        
+        # Сохраняем ссылку на value_label для обновления
+        card.value_label = value_label
+        
+        return card
+    
+    def setup_webengine_ui(self):
         """Настройка JavaScript UI"""
         html_content = '''
         <!DOCTYPE html>
@@ -406,21 +528,70 @@ class JavaScriptUIComponent(QWebEngineView):
         productivity_data = task_manager.calculate_productivity_today()
         weekly_data = task_manager.get_weekly_stats()
         
-        # Формируем данные для JavaScript
-        dashboard_data = {
-            'productivity_percent': productivity_data['productivity_percent'],
-            'efficiency': productivity_data['efficiency'],
-            'total_tasks': productivity_data['total_tasks'],
-            'completed_tasks': productivity_data['completed_tasks'],
-            'pending_tasks': productivity_data['pending_tasks'],
-            'total_time_planned': productivity_data['total_time_planned'],
-            'total_time_completed': productivity_data['total_time_completed'],
-            'weekly_data': weekly_data
-        }
+        # Обновляем московское время
+        moscow_time = localization.get_moscow_time()
         
-        # Отправляем данные в JavaScript
-        js_code = f"if (window.updateDashboardData) {{ window.updateDashboardData({json.dumps(dashboard_data)}); }}"
-        self.page().runJavaScript(js_code)
+        if WEBENGINE_AVAILABLE and hasattr(self, 'page'):
+            # WebEngine версия
+            dashboard_data = {
+                'productivity_percent': productivity_data['productivity_percent'],
+                'efficiency': productivity_data['efficiency'],
+                'total_tasks': productivity_data['total_tasks'],
+                'completed_tasks': productivity_data['completed_tasks'],
+                'pending_tasks': productivity_data['pending_tasks'],
+                'total_time_planned': productivity_data['total_time_planned'],
+                'total_time_completed': productivity_data['total_time_completed'],
+                'weekly_data': weekly_data
+            }
+            
+            # Отправляем данные в JavaScript
+            js_code = f"if (window.updateDashboardData) {{ window.updateDashboardData({json.dumps(dashboard_data)}); }}"
+            self.page().runJavaScript(js_code)
+        else:
+            # Нативная версия
+            self.update_native_dashboard(productivity_data, moscow_time)
+    
+    def update_native_dashboard(self, productivity_data, moscow_time):
+        """Обновление нативного dashboard"""
+        # Обновляем время
+        if hasattr(self, 'time_display'):
+            time_str = moscow_time.strftime('%H:%M:%S')
+            date_str = moscow_time.strftime('%A, %d %B %Y')
+            
+            self.time_display.setText(time_str)
+            self.date_display.setText(date_str)
+        
+        # Обновляем карточки статистики
+        if hasattr(self, 'productivity_card'):
+            self.productivity_card.value_label.setText(f"{productivity_data['productivity_percent']:.1f}%")
+        
+        if hasattr(self, 'time_card'):
+            hours = productivity_data['total_time_completed'] // 60
+            minutes = productivity_data['total_time_completed'] % 60
+            self.time_card.value_label.setText(f"{hours}:{minutes:02d}")
+        
+        if hasattr(self, 'tasks_card'):
+            self.tasks_card.value_label.setText(str(productivity_data['total_tasks']))
+        
+        # Обновляем детальную информацию
+        if hasattr(self, 'details_text'):
+            details = f"""Детальная статистика на {moscow_time.strftime('%d.%m.%Y %H:%M')}:
+
+Задачи:
+  • Всего: {productivity_data['total_tasks']}
+  • Выполнено: {productivity_data['completed_tasks']}
+  • В ожидании: {productivity_data['pending_tasks']}
+  • Продуктивность: {productivity_data['productivity_percent']:.1f}%
+
+Время:
+  • Запланировано: {productivity_data['total_time_planned']} мин
+  • Выполнено: {productivity_data['total_time_completed']} мин
+  • Эффективность: {productivity_data['efficiency']:.1f}%
+
+Статус: {'WebEngine недоступен' if not WEBENGINE_AVAILABLE else 'WebEngine активен'}
+Обновлено: {moscow_time.strftime('%H:%M:%S')}"""
+            
+            self.details_text.setPlainText(details)
     
     def update_translations(self):
         """Обновление переводов в dashboard"""
