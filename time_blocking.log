@@ -1,0 +1,9 @@
+2025-10-03 10:17:11,958 - __main__ - INFO - Запуск Time Blocking Planner v3.0
+2025-10-03 10:17:12,374 - __main__ - INFO - UI инициализирован
+2025-10-03 10:17:17,827 - __main__ - INFO - Обновлено 0 временных блоков
+2025-10-03 10:17:17,828 - __main__ - INFO - Приложение успешно запущено
+2025-10-03 10:17:19,648 - core.event_system - ERROR - Error in event callback _on_tab_changed: 'NavigationBar' object has no attribute 'setCurrentIndex'
+2025-10-03 10:17:20,987 - core.event_system - ERROR - Error in event callback _on_tab_changed: 'NavigationBar' object has no attribute 'setCurrentIndex'
+2025-10-03 10:17:23,024 - core.event_system - ERROR - Error in event callback _on_tab_changed: 'NavigationBar' object has no attribute 'setCurrentIndex'
+2025-10-03 10:17:23,989 - core.event_system - ERROR - Error in event callback _on_tab_changed: 'NavigationBar' object has no attribute 'setCurrentIndex'
+2025-10-03 10:17:32,207 - __main__ - INFO - Приложение закрыто
